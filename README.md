@@ -68,6 +68,19 @@ Outras fontes de 404 testadas:
 
 Não dá 404, mas é armadilha: no Apps, `DATABRICKS_HOST` vem **sem `https://`**. Usar o valor cru no `base_url` dá `APIConnectionError` / `UnsupportedProtocol`. Use `WorkspaceClient().config.host`, que já vem normalizado.
 
+### E se o OBO também dá 404?
+
+Com OBO quem chama é o próprio usuário, o mesmo do notebook, então grant **não** explica. Testado:
+- OBO **sem** o scope `ai-gateway` dá **403**, não 404.
+- O host regional `<workspace-id>.ai-gateway.<domínio>` com token `all-apis` dá 200.
+
+404 nos dois modos aponta para o que o App faz diferente do notebook:
+1. **Nome do model service** vindo de config/env do App: nome legado `system.ai.databricks-claude-*`, typo ou catálogo/schema diferente.
+2. **Workspace diferente:** o App chama o workspace onde está deployado (`DATABRICKS_HOST`). Se o notebook roda em outro workspace e o catálogo do service tem *workspace binding* sem o workspace do App, ou o modelo não é servido na região dele, o UC responde `does not exist`.
+3. **Notebook usando outro caminho** (`/serving-endpoints/databricks-*`, `ai_query`, mlflow deployments): "funciona no notebook" não valida o código do App. Rode no notebook exatamente o mesmo `base_url` + `model`.
+
+O texto do 404 diferencia: `'<nome>' does not exist` vem do Unity Gateway (nome/workspace/permissão); `ENDPOINT_NOT_FOUND` vem de `/serving-endpoints`; `{"detail":"Not Found"}` vem do próprio App (path relativo).
+
 ## Se der erro
 
 | Mensagem | Causa provável |
